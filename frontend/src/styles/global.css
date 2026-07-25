@@ -55,6 +55,13 @@ html,
 body {
   margin: 0;
   padding: 0;
+  /* Tells iOS Safari there's no double-tap-to-zoom to wait for, so it
+     doesn't hold a fresh touch/pencil-down briefly to disambiguate a
+     single tap from the start of a double-tap — this is the standard,
+     documented fix for tap-recognition delay in mobile Safari. Still
+     allows normal scrolling/panning everywhere except the canvas itself,
+     which keeps its own touch-action: none to block scroll while drawing. */
+  touch-action: manipulation;
 }
 
 body {

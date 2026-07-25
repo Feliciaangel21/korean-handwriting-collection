@@ -107,13 +107,36 @@ export const SingleLineCanvas = forwardRef<SingleLineCanvasHandle, SingleLineCan
       [recorder],
     );
 
-    const wrapForPen = useCallback(
-      <E,>(handler: (event: E) => void) =>
-        (event: E) => {
-          if (disabled) return;
-          handler(event);
-        },
-      [disabled],
+    // Memoized per-handler (not re-wrapped inline in JSX): recorder.handlePointerDown
+    // etc. are themselves stable across renders, so as long as `disabled`
+    // doesn't change, these keep the same identity too. Re-wrapping with a
+    // fresh closure on every render (as this used to do) made React detach
+    // and re-attach the native pointer listeners on every stroke update —
+    // including right at the gap between one stroke's lift and the next
+    // stroke's touch-down, which was adding to the Apple Pencil lag.
+    const handlePointerDown = useCallback(
+      (event: React.PointerEvent<HTMLCanvasElement>) => {
+        if (disabled) return;
+        recorder.handlePointerDown(event);
+      },
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [disabled, recorder.handlePointerDown],
+    );
+    const handlePointerMove = useCallback(
+      (event: React.PointerEvent<HTMLCanvasElement>) => {
+        if (disabled) return;
+        recorder.handlePointerMove(event);
+      },
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [disabled, recorder.handlePointerMove],
+    );
+    const handlePointerUp = useCallback(
+      (event: React.PointerEvent<HTMLCanvasElement>) => {
+        if (disabled) return;
+        recorder.handlePointerUp(event);
+      },
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [disabled, recorder.handlePointerUp],
     );
 
     return (
@@ -123,10 +146,10 @@ export const SingleLineCanvas = forwardRef<SingleLineCanvasHandle, SingleLineCan
             ref={canvasRef}
             role="img"
             aria-label={ariaLabel}
-            onPointerDown={wrapForPen(recorder.handlePointerDown)}
-            onPointerMove={wrapForPen(recorder.handlePointerMove)}
-            onPointerUp={wrapForPen(recorder.handlePointerUp)}
-            onPointerCancel={wrapForPen(recorder.handlePointerUp)}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
           />
           {showGuideline && <div className="canvas-guideline" aria-hidden="true" />}
         </div>
