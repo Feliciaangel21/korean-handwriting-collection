@@ -12,10 +12,10 @@ export function ThankYouPage() {
             Your handwriting samples have been submitted successfully. Thank you for contributing to this Korean
             handwriting recognition research study.
           </p>
-          <p className="text-muted">You may now close this window, or start a new session below.</p>
+          <p className="text-muted">You may now close this window, or write again below as a new participant.</p>
           <div>
             <button type="button" className="button" onClick={() => navigate("/")}>
-              Start Another Session
+              Write Again
             </button>
           </div>
         </div>

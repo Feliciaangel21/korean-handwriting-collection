@@ -70,7 +70,9 @@ function CanvasSlot({
 
   return (
     <div className="canvas-slot">
-      <span className="canvas-slot-label">{slotLabel(writingStyle)}</span>
+      <span className="canvas-slot-label">
+        {slotLabel(writingStyle)} — <strong>write on a single line</strong>
+      </span>
       <SingleLineCanvas
         ref={(handle) => {
           handleRef.current = handle;
