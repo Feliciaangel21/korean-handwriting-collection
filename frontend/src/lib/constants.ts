@@ -6,9 +6,9 @@ import type { LearningDuration, Proficiency, SentenceNumber } from "./types";
  * never randomized, fetched from a backend, or editable.
  */
 export const SENTENCES: Record<SentenceNumber, string> = {
-  1: "젊은 학생은 값싼 회색 종이에\n“꽃잎은 넓고, 빛깔은 꽤 짙다”\n라고 또박또박 적었다.",
-  2: "맑은 봄날, 짧은 치마를 입은 아이가\n밭둑 옆에서 조그만 쪽지를 접었다.",
-  3: "어젯밤 형은 부엌 창가에 놓인 찻잔을\n깨끗이 닦고, 여러 권의 책을 책꽂이에 꽂았다.",
+  1: "젊은 학생은 값싼 종이에 “꽃잎은 꽤 짙다”라고 적었다.",
+  2: "맑은 봄날, 아이가 밭둑 옆에서 쪽지를 접었다.",
+  3: "형은 찻잔을 닦고 책을 책꽂이에 꽂았다.",
 };
 
 export const SENTENCE_NUMBERS: SentenceNumber[] = [1, 2, 3];
