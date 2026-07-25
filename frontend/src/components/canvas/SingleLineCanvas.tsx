@@ -61,6 +61,25 @@ export const SingleLineCanvas = forwardRef<SingleLineCanvasHandle, SingleLineCan
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [width, height]);
 
+    // Workaround for an iPadOS Scribble bug: Scribble intercepts Apple
+    // Pencil input system-wide to check for handwriting-to-text, even on
+    // canvas elements where no text input is possible, causing dropped or
+    // interrupted strokes in Safari specifically (confirmed by testers:
+    // works fine with touch, works fine in native apps, only breaks with
+    // Apple Pencil in this web app). A native (non-passive) `touchmove`
+    // listener that does nothing but preventDefault has been reported to
+    // stop Scribble from grabbing the input — reason unconfirmed, but it's
+    // scoped to only ever call preventDefault and never touches drawing
+    // logic, so it can't affect the separate pointer-event-based drawing
+    // path that touch/mouse/Android already use successfully.
+    useEffect(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const suppressDefault = (event: TouchEvent) => event.preventDefault();
+      canvas.addEventListener("touchmove", suppressDefault, { passive: false });
+      return () => canvas.removeEventListener("touchmove", suppressDefault);
+    }, []);
+
     useEffect(() => {
       const boundingBox = computeBoundingBox(recorder.strokes);
       const pointCount = countPoints(recorder.strokes);
