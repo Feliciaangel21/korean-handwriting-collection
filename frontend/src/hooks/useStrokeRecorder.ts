@@ -1,9 +1,14 @@
 import { useCallback, useRef, useState } from "react";
 import { drawDot, drawSegment, drawStrokes, paintWhiteBackground } from "../components/canvas/canvasDrawing";
+import { ALLOW_ANY_POINTER_TYPE } from "../lib/debugFlags";
 import type { Stroke, StrokePoint } from "../lib/types";
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+function isAcceptedPointerType(pointerType: string): boolean {
+  return pointerType === "pen" || ALLOW_ANY_POINTER_TYPE;
 }
 
 interface UseStrokeRecorderOptions {
@@ -29,7 +34,10 @@ export interface StrokeRecorder {
 /**
  * Records raw pointer events into StrokePoint sequences. Only pointerType
  * "pen" ever creates or extends a stroke — touch and mouse input are
- * ignored entirely, per the stylus-only data collection requirement.
+ * ignored entirely, per the stylus-only data collection requirement. (A
+ * debug-only flag, `ALLOW_ANY_POINTER_TYPE` from lib/debugFlags.ts, can
+ * temporarily lift this restriction for diagnosing whether the pointerType
+ * filter itself is related to input-recognition issues on a given device.)
  *
  * Ink is painted synchronously inside these handlers (not via a React
  * effect reacting to state) so there's zero round-trip through React's
@@ -84,7 +92,7 @@ export function useStrokeRecorder({ width, height, canvasRef, onStrokeStart }: U
 
   const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
-      if (event.pointerType !== "pen") return;
+      if (!isAcceptedPointerType(event.pointerType)) return;
       event.preventDefault();
 
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -109,7 +117,7 @@ export function useStrokeRecorder({ width, height, canvasRef, onStrokeStart }: U
 
   const handlePointerMove = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
-      if (event.pointerType !== "pen") return;
+      if (!isAcceptedPointerType(event.pointerType)) return;
       if (activePointerIdRef.current !== event.pointerId) return;
       event.preventDefault();
 
@@ -132,7 +140,7 @@ export function useStrokeRecorder({ width, height, canvasRef, onStrokeStart }: U
 
   const handlePointerUp = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
-      if (event.pointerType !== "pen") return;
+      if (!isAcceptedPointerType(event.pointerType)) return;
       if (activePointerIdRef.current !== event.pointerId) return;
       event.preventDefault();
 
