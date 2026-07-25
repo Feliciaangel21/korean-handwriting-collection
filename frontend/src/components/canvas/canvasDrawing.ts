@@ -6,8 +6,14 @@ const MAX_WIDTH = 4.5;
 const PRESSURE_SCALE = 3.2;
 const DOT_RADIUS = 1.4;
 
-function lineWidthForPressure(pressure: number): number {
-  const effective = pressure > 0 ? pressure : 0.5;
+function lineWidthForPressure(pressure: number, pointerType: string): number {
+  // Genuine pen pressure is trusted as-is, including near zero — that's
+  // what lets a stroke taper thin as the pencil lifts off, rather than
+  // holding a constant mid-width right up to the round cap at the end
+  // (which read as a bold "dot" stamped at every stroke's finish).
+  // Non-pen input (mouse, or touch without real pressure) doesn't report
+  // a meaningful pressure at all, so it falls back to a fixed mid-width.
+  const effective = pointerType === "pen" ? pressure : pressure > 0 ? pressure : 0.5;
   return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, effective * PRESSURE_SCALE));
 }
 
@@ -28,7 +34,7 @@ export function drawSegment(ctx: CanvasRenderingContext2D, prev: StrokePoint, cu
   ctx.strokeStyle = PEN_COLOR;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.lineWidth = lineWidthForPressure(curr.pressure);
+  ctx.lineWidth = lineWidthForPressure(curr.pressure, curr.pointerType);
   ctx.beginPath();
   ctx.moveTo(prev.x, prev.y);
   ctx.lineTo(curr.x, curr.y);
