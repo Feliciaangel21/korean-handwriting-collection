@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { drawDot, drawSegment, drawStrokes, paintWhiteBackground } from "../components/canvas/canvasDrawing";
 import type { Stroke, StrokePoint } from "../lib/types";
 
 function clamp(value: number, min: number, max: number): number {
@@ -8,6 +9,7 @@ function clamp(value: number, min: number, max: number): number {
 interface UseStrokeRecorderOptions {
   width: number;
   height: number;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
   onStrokeStart?: () => void;
 }
 
@@ -28,14 +30,29 @@ export interface StrokeRecorder {
  * Records raw pointer events into StrokePoint sequences. Only pointerType
  * "pen" ever creates or extends a stroke — touch and mouse input are
  * ignored entirely, per the stylus-only data collection requirement.
+ *
+ * Ink is painted synchronously inside these handlers (not via a React
+ * effect reacting to state) so there's zero round-trip through React's
+ * render cycle between the physical pen moving and the ink appearing.
+ * High-frequency input (Apple Pencil on a ProMotion iPad can report well
+ * over 100 events/sec) made a state-driven full-canvas redraw per point
+ * visibly laggy; a `strokes` ref mirrors the state for this synchronous
+ * path, while the state itself still drives everything else (React
+ * consumers, validation, IndexedDB persistence).
  */
-export function useStrokeRecorder({ width, height, onStrokeStart }: UseStrokeRecorderOptions): StrokeRecorder {
+export function useStrokeRecorder({ width, height, canvasRef, onStrokeStart }: UseStrokeRecorderOptions): StrokeRecorder {
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [hasPenInput, setHasPenInput] = useState(false);
+  const strokesRef = useRef<Stroke[]>([]);
+  const lastPointRef = useRef<StrokePoint | null>(null);
   const nextStrokeIdRef = useRef(0);
   const activePointerIdRef = useRef<number | null>(null);
   const firstEventTimestampRef = useRef<number | null>(null);
   const lastEventTimestampRef = useRef<number | null>(null);
+
+  const getContext = useCallback((): CanvasRenderingContext2D | null => {
+    return canvasRef.current?.getContext("2d") ?? null;
+  }, [canvasRef]);
 
   const toLocalPoint = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>, strokeId: number, kind: StrokePoint["event"]): StrokePoint => {
@@ -79,9 +96,16 @@ export function useStrokeRecorder({ width, height, onStrokeStart }: UseStrokeRec
       const strokeId = nextStrokeIdRef.current;
       nextStrokeIdRef.current += 1;
       const point = toLocalPoint(event, strokeId, "down");
-      setStrokes((prev) => [...prev, [point]]);
+
+      const next = [...strokesRef.current, [point]];
+      strokesRef.current = next;
+      setStrokes(next);
+      lastPointRef.current = point;
+
+      const ctx = getContext();
+      if (ctx) drawDot(ctx, point);
     },
-    [onStrokeStart, toLocalPoint],
+    [onStrokeStart, toLocalPoint, getContext],
   );
 
   const handlePointerMove = useCallback(
@@ -90,17 +114,21 @@ export function useStrokeRecorder({ width, height, onStrokeStart }: UseStrokeRec
       if (activePointerIdRef.current !== event.pointerId) return;
       event.preventDefault();
 
+      const current = strokesRef.current;
+      if (current.length === 0) return;
+
       const strokeId = nextStrokeIdRef.current - 1;
       const point = toLocalPoint(event, strokeId, "move");
+      const lastStroke = current[current.length - 1];
+      const next = [...current.slice(0, -1), [...lastStroke, point]];
+      strokesRef.current = next;
+      setStrokes(next);
 
-      setStrokes((prev) => {
-        if (prev.length === 0) return prev;
-        const next = prev.slice(0, -1);
-        next.push([...prev[prev.length - 1], point]);
-        return next;
-      });
+      const ctx = getContext();
+      if (ctx && lastPointRef.current) drawSegment(ctx, lastPointRef.current, point);
+      lastPointRef.current = point;
     },
-    [toLocalPoint],
+    [toLocalPoint, getContext],
   );
 
   const handlePointerUp = useCallback(
@@ -109,20 +137,25 @@ export function useStrokeRecorder({ width, height, onStrokeStart }: UseStrokeRec
       if (activePointerIdRef.current !== event.pointerId) return;
       event.preventDefault();
 
-      const strokeId = nextStrokeIdRef.current - 1;
-      const point = toLocalPoint(event, strokeId, "up");
-      setStrokes((prev) => {
-        if (prev.length === 0) return prev;
-        const next = prev.slice(0, -1);
-        next.push([...prev[prev.length - 1], point]);
-        return next;
-      });
+      const current = strokesRef.current;
+      if (current.length > 0) {
+        const strokeId = nextStrokeIdRef.current - 1;
+        const point = toLocalPoint(event, strokeId, "up");
+        const lastStroke = current[current.length - 1];
+        const next = [...current.slice(0, -1), [...lastStroke, point]];
+        strokesRef.current = next;
+        setStrokes(next);
 
+        const ctx = getContext();
+        if (ctx && lastPointRef.current) drawSegment(ctx, lastPointRef.current, point);
+      }
+
+      lastPointRef.current = null;
       event.currentTarget.releasePointerCapture(event.pointerId);
       activePointerIdRef.current = null;
       document.body.classList.remove("is-writing");
     },
-    [toLocalPoint],
+    [toLocalPoint, getContext],
   );
 
   // Safety net: if this canvas unmounts mid-stroke (e.g. navigating away),
@@ -136,34 +169,52 @@ export function useStrokeRecorder({ width, height, onStrokeStart }: UseStrokeRec
   }, []);
 
   const undoLastStroke = useCallback(() => {
-    setStrokes((prev) => prev.slice(0, -1));
-  }, []);
+    const next = strokesRef.current.slice(0, -1);
+    strokesRef.current = next;
+    setStrokes(next);
+    lastPointRef.current = null;
+
+    const ctx = getContext();
+    if (ctx) drawStrokes(ctx, next, width, height);
+  }, [getContext, width, height]);
 
   const clear = useCallback(() => {
+    strokesRef.current = [];
     setStrokes([]);
     nextStrokeIdRef.current = 0;
     activePointerIdRef.current = null;
     firstEventTimestampRef.current = null;
     lastEventTimestampRef.current = null;
-  }, []);
+    lastPointRef.current = null;
 
-  const restoreStrokes = useCallback((restored: Stroke[]) => {
-    setStrokes(restored);
-    setHasPenInput(restored.length > 0);
-    activePointerIdRef.current = null;
+    const ctx = getContext();
+    if (ctx) paintWhiteBackground(ctx, width, height);
+  }, [getContext, width, height]);
 
-    const allPoints = restored.flat();
-    if (allPoints.length === 0) {
-      nextStrokeIdRef.current = 0;
-      firstEventTimestampRef.current = null;
-      lastEventTimestampRef.current = null;
-      return;
-    }
+  const restoreStrokes = useCallback(
+    (restored: Stroke[]) => {
+      strokesRef.current = restored;
+      setStrokes(restored);
+      setHasPenInput(restored.length > 0);
+      activePointerIdRef.current = null;
+      lastPointRef.current = null;
 
-    nextStrokeIdRef.current = Math.max(...allPoints.map((p) => p.stroke_id)) + 1;
-    firstEventTimestampRef.current = Math.min(...allPoints.map((p) => p.timestamp - p.relative_time));
-    lastEventTimestampRef.current = Math.max(...allPoints.map((p) => p.timestamp));
-  }, []);
+      const allPoints = restored.flat();
+      if (allPoints.length === 0) {
+        nextStrokeIdRef.current = 0;
+        firstEventTimestampRef.current = null;
+        lastEventTimestampRef.current = null;
+      } else {
+        nextStrokeIdRef.current = Math.max(...allPoints.map((p) => p.stroke_id)) + 1;
+        firstEventTimestampRef.current = Math.min(...allPoints.map((p) => p.timestamp - p.relative_time));
+        lastEventTimestampRef.current = Math.max(...allPoints.map((p) => p.timestamp));
+      }
+
+      const ctx = getContext();
+      if (ctx) drawStrokes(ctx, restored, width, height);
+    },
+    [getContext, width, height],
+  );
 
   return {
     strokes,

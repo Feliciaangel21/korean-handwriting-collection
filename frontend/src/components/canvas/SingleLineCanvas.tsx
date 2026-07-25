@@ -3,6 +3,7 @@ import { useStrokeRecorder } from "../../hooks/useStrokeRecorder";
 import { canvasToPngDataUrl } from "../../hooks/usePngExporter";
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from "../../lib/constants";
 import { computeBoundingBox, countPoints } from "../../lib/validation";
+import { drawStrokes } from "./canvasDrawing";
 import type { Stroke } from "../../lib/types";
 
 export interface SingleLineCanvasSnapshot {
@@ -30,38 +31,6 @@ interface SingleLineCanvasProps {
   onStrokesChange?: (snapshot: SingleLineCanvasSnapshot) => void;
 }
 
-function drawStrokes(ctx: CanvasRenderingContext2D, strokes: Stroke[], width: number, height: number): void {
-  ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, width, height);
-
-  ctx.strokeStyle = "#000000";
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-
-  for (const stroke of strokes) {
-    for (let i = 1; i < stroke.length; i += 1) {
-      const prev = stroke[i - 1];
-      const curr = stroke[i];
-      const pressure = curr.pressure > 0 ? curr.pressure : 0.5;
-      ctx.lineWidth = Math.min(4.5, Math.max(1.2, pressure * 3.2));
-      ctx.beginPath();
-      ctx.moveTo(prev.x, prev.y);
-      ctx.lineTo(curr.x, curr.y);
-      ctx.stroke();
-    }
-
-    if (stroke.length === 1) {
-      // A single tap-and-release: render a dot so it isn't invisible.
-      const point = stroke[0];
-      ctx.beginPath();
-      ctx.fillStyle = "#000000";
-      ctx.arc(point.x, point.y, 1.4, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-}
-
 export const SingleLineCanvas = forwardRef<SingleLineCanvasHandle, SingleLineCanvasProps>(
   function SingleLineCanvas(
     { width = CANVAS_WIDTH, height = CANVAS_HEIGHT, showGuideline = true, disabled = false, ariaLabel, onStrokesChange },
@@ -69,11 +38,13 @@ export const SingleLineCanvas = forwardRef<SingleLineCanvasHandle, SingleLineCan
   ) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-    const recorder = useStrokeRecorder({ width, height });
+    const recorder = useStrokeRecorder({ width, height, canvasRef });
 
     // Set up the backing bitmap once per logical size (accounts for device
     // pixel ratio so ink renders crisply); the guideline is a separate DOM
     // overlay and never touches this bitmap, so PNG export stays clean.
+    // Ongoing drawing happens synchronously inside useStrokeRecorder's
+    // pointer handlers (not here) — see that hook for why.
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -89,13 +60,6 @@ export const SingleLineCanvas = forwardRef<SingleLineCanvasHandle, SingleLineCan
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [width, height]);
-
-    useEffect(() => {
-      const canvas = canvasRef.current;
-      const ctx = canvas?.getContext("2d");
-      if (!ctx) return;
-      drawStrokes(ctx, recorder.strokes, width, height);
-    }, [recorder.strokes, width, height]);
 
     useEffect(() => {
       const boundingBox = computeBoundingBox(recorder.strokes);
