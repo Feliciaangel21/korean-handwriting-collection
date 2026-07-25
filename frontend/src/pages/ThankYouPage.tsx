@@ -7,6 +7,9 @@ export function ThankYouPage() {
     <div className="page">
       <div className="page-content">
         <div className="card" style={{ textAlign: "center", gap: 20, display: "flex", flexDirection: "column" }}>
+          <div className="mascot-dock">
+            <span className="mascot-wave" aria-hidden="true" />
+          </div>
           <h1>Thank You</h1>
           <p>
             Your handwriting samples have been submitted successfully. Thank you for contributing to this Korean

@@ -7,6 +7,9 @@ export function LandingPage() {
     <div className="page">
       <div className="page-content">
         <div className="card" style={{ textAlign: "center", gap: 24, display: "flex", flexDirection: "column" }}>
+          <div className="mascot-dock">
+            <span className="mascot-walk" aria-hidden="true" />
+          </div>
           <h1>Korean Handwriting Data Collection Study</h1>
           <p className="text-muted">
             Thank you for considering participation in this research study. We are collecting online handwriting
