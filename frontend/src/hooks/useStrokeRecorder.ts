@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Stroke, StrokePoint } from "../lib/types";
 
 function clamp(value: number, min: number, max: number): number {
@@ -68,10 +68,12 @@ export function useStrokeRecorder({ width, height, onStrokeStart }: UseStrokeRec
   const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (event.pointerType !== "pen") return;
+      event.preventDefault();
 
       event.currentTarget.setPointerCapture(event.pointerId);
       activePointerIdRef.current = event.pointerId;
       setHasPenInput(true);
+      document.body.classList.add("is-writing");
       onStrokeStart?.();
 
       const strokeId = nextStrokeIdRef.current;
@@ -86,6 +88,7 @@ export function useStrokeRecorder({ width, height, onStrokeStart }: UseStrokeRec
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (event.pointerType !== "pen") return;
       if (activePointerIdRef.current !== event.pointerId) return;
+      event.preventDefault();
 
       const strokeId = nextStrokeIdRef.current - 1;
       const point = toLocalPoint(event, strokeId, "move");
@@ -104,6 +107,7 @@ export function useStrokeRecorder({ width, height, onStrokeStart }: UseStrokeRec
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (event.pointerType !== "pen") return;
       if (activePointerIdRef.current !== event.pointerId) return;
+      event.preventDefault();
 
       const strokeId = nextStrokeIdRef.current - 1;
       const point = toLocalPoint(event, strokeId, "up");
@@ -116,9 +120,20 @@ export function useStrokeRecorder({ width, height, onStrokeStart }: UseStrokeRec
 
       event.currentTarget.releasePointerCapture(event.pointerId);
       activePointerIdRef.current = null;
+      document.body.classList.remove("is-writing");
     },
     [toLocalPoint],
   );
+
+  // Safety net: if this canvas unmounts mid-stroke (e.g. navigating away),
+  // make sure the page doesn't get stuck unscrollable.
+  useEffect(() => {
+    return () => {
+      if (activePointerIdRef.current !== null) {
+        document.body.classList.remove("is-writing");
+      }
+    };
+  }, []);
 
   const undoLastStroke = useCallback(() => {
     setStrokes((prev) => prev.slice(0, -1));

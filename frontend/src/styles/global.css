@@ -72,6 +72,15 @@ body {
   flex-direction: column;
 }
 
+/* Applied to <body> for as long as a pen stroke is in progress, so a palm
+   resting on a touchscreen (or any other stray input) can't scroll the
+   page mid-stroke. */
+body.is-writing {
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
 a {
   color: inherit;
 }
@@ -302,6 +311,7 @@ p {
 
 .canvas-scroll-wrapper {
   overflow-x: auto;
+  overscroll-behavior: contain;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   -webkit-overflow-scrolling: touch;
