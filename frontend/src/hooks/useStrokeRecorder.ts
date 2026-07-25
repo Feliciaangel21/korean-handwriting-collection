@@ -1,14 +1,14 @@
 import { useCallback, useRef, useState } from "react";
 import { drawDot, drawSegment, drawStrokes, paintWhiteBackground } from "../components/canvas/canvasDrawing";
-import { useAllowAnyPointerType } from "./useAllowAnyPointerType";
+import { useInputMode } from "./useInputMode";
 import type { Stroke, StrokePoint } from "../lib/types";
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-function isAcceptedPointerType(pointerType: string, allowAny: boolean): boolean {
-  return pointerType === "pen" || allowAny;
+function isAcceptedPointerType(pointerType: string, acceptAnyInput: boolean): boolean {
+  return pointerType === "pen" || acceptAnyInput;
 }
 
 interface UseStrokeRecorderOptions {
@@ -32,13 +32,13 @@ export interface StrokeRecorder {
 }
 
 /**
- * Records raw pointer events into StrokePoint sequences. Only pointerType
- * "pen" ever creates or extends a stroke — touch and mouse input are
- * ignored entirely, per the stylus-only data collection requirement. (A
- * debug-only toggle, exposed via lib/debugFlags.ts and a visible on-screen
- * checkbox, can temporarily lift this restriction for diagnosing whether
- * the pointerType filter itself is related to input-recognition issues on
- * a given device.)
+ * Records raw pointer events into StrokePoint sequences. By default, only
+ * pointerType "pen" creates or extends a stroke, since this app collects
+ * genuine online handwriting stroke data — touch and mouse are ignored.
+ * The input-mode preference (lib/inputPreferences.ts, toggleable via the
+ * on-screen checkbox) can widen this to accept any pointer type; every
+ * point still records its own true `pointerType`, so nothing is ever
+ * mislabeled regardless of which mode is active.
  *
  * Ink is painted synchronously inside these handlers (not via a React
  * effect reacting to state) so there's zero round-trip through React's
@@ -52,7 +52,7 @@ export interface StrokeRecorder {
 export function useStrokeRecorder({ width, height, canvasRef, onStrokeStart }: UseStrokeRecorderOptions): StrokeRecorder {
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [hasPenInput, setHasPenInput] = useState(false);
-  const [allowAnyPointerType] = useAllowAnyPointerType();
+  const [acceptAnyInput] = useInputMode();
   const strokesRef = useRef<Stroke[]>([]);
   const lastPointRef = useRef<StrokePoint | null>(null);
   const nextStrokeIdRef = useRef(0);
@@ -94,7 +94,7 @@ export function useStrokeRecorder({ width, height, canvasRef, onStrokeStart }: U
 
   const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
-      if (!isAcceptedPointerType(event.pointerType, allowAnyPointerType)) return;
+      if (!isAcceptedPointerType(event.pointerType, acceptAnyInput)) return;
       event.preventDefault();
 
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -114,12 +114,12 @@ export function useStrokeRecorder({ width, height, canvasRef, onStrokeStart }: U
       const ctx = getContext();
       if (ctx) drawDot(ctx, point);
     },
-    [onStrokeStart, toLocalPoint, getContext, allowAnyPointerType],
+    [onStrokeStart, toLocalPoint, getContext, acceptAnyInput],
   );
 
   const handlePointerMove = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
-      if (!isAcceptedPointerType(event.pointerType, allowAnyPointerType)) return;
+      if (!isAcceptedPointerType(event.pointerType, acceptAnyInput)) return;
       if (activePointerIdRef.current !== event.pointerId) return;
       event.preventDefault();
 
@@ -137,12 +137,12 @@ export function useStrokeRecorder({ width, height, canvasRef, onStrokeStart }: U
       if (ctx && lastPointRef.current) drawSegment(ctx, lastPointRef.current, point);
       lastPointRef.current = point;
     },
-    [toLocalPoint, getContext, allowAnyPointerType],
+    [toLocalPoint, getContext, acceptAnyInput],
   );
 
   const handlePointerUp = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
-      if (!isAcceptedPointerType(event.pointerType, allowAnyPointerType)) return;
+      if (!isAcceptedPointerType(event.pointerType, acceptAnyInput)) return;
       if (activePointerIdRef.current !== event.pointerId) return;
       event.preventDefault();
 
@@ -170,7 +170,7 @@ export function useStrokeRecorder({ width, height, canvasRef, onStrokeStart }: U
 
       lastPointRef.current = null;
     },
-    [toLocalPoint, getContext, allowAnyPointerType],
+    [toLocalPoint, getContext, acceptAnyInput],
   );
 
   const undoLastStroke = useCallback(() => {
