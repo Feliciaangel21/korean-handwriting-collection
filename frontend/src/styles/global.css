@@ -64,6 +64,20 @@ body {
   font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  /* iOS Safari treats any touch-and-hold (e.g. a palm resting beside the
+     canvas while writing with Apple Pencil) as a text-selection gesture,
+     popping up the selection callout over whatever text it landed on.
+     This app has no text participants need to select/copy, so disable
+     that entirely — this is what was "blocking the text above" on iPad
+     but not on the Samsung tablet (Android doesn't default to this). */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.selectable {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 #root {

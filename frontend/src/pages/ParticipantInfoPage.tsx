@@ -27,7 +27,7 @@ export function ParticipantInfoPage() {
       <div className="page-content">
         <h1>Participant Information</h1>
         <p className="text-muted">
-          Your anonymous writer ID: <strong>{writerId}</strong>. No name, email, or other identifying information is
+          Your anonymous writer ID: <strong className="selectable">{writerId}</strong>. No name, email, or other identifying information is
           collected.
         </p>
 
