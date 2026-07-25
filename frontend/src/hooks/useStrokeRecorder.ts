@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { drawDot, drawSegment, drawStrokes, paintWhiteBackground } from "../components/canvas/canvasDrawing";
 import type { Stroke, StrokePoint } from "../lib/types";
 
@@ -90,7 +90,6 @@ export function useStrokeRecorder({ width, height, canvasRef, onStrokeStart }: U
       event.currentTarget.setPointerCapture(event.pointerId);
       activePointerIdRef.current = event.pointerId;
       setHasPenInput(true);
-      document.body.classList.add("is-writing");
       onStrokeStart?.();
 
       const strokeId = nextStrokeIdRef.current;
@@ -137,6 +136,15 @@ export function useStrokeRecorder({ width, height, canvasRef, onStrokeStart }: U
       if (activePointerIdRef.current !== event.pointerId) return;
       event.preventDefault();
 
+      // Release capture immediately, before any other bookkeeping, so the
+      // browser is free to start dispatching the *next* pointerdown (e.g.
+      // the following stroke) as soon as possible. On iOS, an Apple Pencil
+      // lift-then-touch-down-again was showing a noticeable delay before
+      // the new stroke was recognized — releasing capture late was one
+      // plausible source of that, so this is now the very first thing we do.
+      event.currentTarget.releasePointerCapture(event.pointerId);
+      activePointerIdRef.current = null;
+
       const current = strokesRef.current;
       if (current.length > 0) {
         const strokeId = nextStrokeIdRef.current - 1;
@@ -151,22 +159,9 @@ export function useStrokeRecorder({ width, height, canvasRef, onStrokeStart }: U
       }
 
       lastPointRef.current = null;
-      event.currentTarget.releasePointerCapture(event.pointerId);
-      activePointerIdRef.current = null;
-      document.body.classList.remove("is-writing");
     },
     [toLocalPoint, getContext],
   );
-
-  // Safety net: if this canvas unmounts mid-stroke (e.g. navigating away),
-  // make sure the page doesn't get stuck unscrollable.
-  useEffect(() => {
-    return () => {
-      if (activePointerIdRef.current !== null) {
-        document.body.classList.remove("is-writing");
-      }
-    };
-  }, []);
 
   const undoLastStroke = useCallback(() => {
     const next = strokesRef.current.slice(0, -1);
