@@ -16,6 +16,7 @@ export function ParticipantInfoPage() {
   const { writerId, writerInfo, setWriterInfo } = useCollection();
 
   const needsLearningDuration = writerInfo.koreanBackground === "learner";
+  const needsProficiency = writerInfo.koreanBackground === "learner";
   const canContinue =
     writerInfo.koreanBackground !== null &&
     writerInfo.proficiency !== null &&
@@ -44,6 +45,7 @@ export function ParticipantInfoPage() {
                       setWriterInfo({
                         koreanBackground: option.value,
                         learningDuration: option.value === "learner" ? writerInfo.learningDuration : null,
+                        proficiency: option.value === "native" ? "native" : null,
                       })
                     }
                   />
@@ -72,22 +74,24 @@ export function ParticipantInfoPage() {
             </div>
           )}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <span className="field-label">Current Korean proficiency</span>
-            <div className="radio-group">
-              {PROFICIENCY_OPTIONS.map(([value, label]) => (
-                <label className="radio-option" key={value}>
-                  <input
-                    type="radio"
-                    name="proficiency"
-                    checked={writerInfo.proficiency === value}
-                    onChange={() => setWriterInfo({ proficiency: value })}
-                  />
-                  <span>{label}</span>
-                </label>
-              ))}
+          {needsProficiency && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <span className="field-label">Current Korean proficiency</span>
+              <div className="radio-group">
+                {PROFICIENCY_OPTIONS.map(([value, label]) => (
+                  <label className="radio-option" key={value}>
+                    <input
+                      type="radio"
+                      name="proficiency"
+                      checked={writerInfo.proficiency === value}
+                      onChange={() => setWriterInfo({ proficiency: value })}
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <div>
             <button
