@@ -6,7 +6,7 @@ import type { LearningDuration, Proficiency, SentenceNumber } from "./types";
  * never randomized, fetched from a backend, or editable.
  */
 export const SENTENCES: Record<SentenceNumber, string> = {
-  1: "젊은 학생은 값싼 종이에 “꽃잎은 꽤 짙다”라고 적었다.",
+  1: "젊은 학생은 값싼 종이에 꽃잎은 꽤 짙다라고 적었다.",
   2: "맑은 봄날, 아이가 밭둑 옆에서 쪽지를 접었다.",
   3: "형은 찻잔을 닦고 책을 책꽂이에 꽂았다.",
 };
