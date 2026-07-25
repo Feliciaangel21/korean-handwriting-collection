@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { drawDot, drawSegment, drawStrokes, paintWhiteBackground } from "../components/canvas/canvasDrawing";
+import { drawSegment, drawStrokes, paintWhiteBackground } from "../components/canvas/canvasDrawing";
 import { useInputMode } from "./useInputMode";
 import type { Stroke, StrokePoint } from "../lib/types";
 
@@ -110,11 +110,13 @@ export function useStrokeRecorder({ width, height, canvasRef, onStrokeStart }: U
       strokesRef.current = next;
       setStrokes(next);
       lastPointRef.current = point;
-
-      const ctx = getContext();
-      if (ctx) drawDot(ctx, point);
+      // No dot drawn here on purpose: the first line segment (drawn on the
+      // next move/up) starts from this exact point with a round cap, which
+      // already renders as a dot for a stationary tap. Drawing a separate
+      // dot here on top of that cap doubled up as a visibly bolder blob at
+      // the start of every single stroke.
     },
-    [onStrokeStart, toLocalPoint, getContext, acceptAnyInput],
+    [onStrokeStart, toLocalPoint, acceptAnyInput],
   );
 
   const handlePointerMove = useCallback(
